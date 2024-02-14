@@ -2,30 +2,16 @@
 
 AVAILABLE_ARCHITECTURES="amd64 arm64 armhf"
 
-DEFAULT_SUITE="trixie"
-
 # Determine branch. On tag builds, CIRCLE_BRANCH is not set, so we infer
 # the branch by looking at the actual tag
 if [ -n "${CIRCLE_TAG}" ]; then
     REAL_BRANCH="$(echo ${CIRCLE_TAG} | cut -d "/" -f2)"
-
-    if \
-        [ "${REAL_BRANCH}" == "${DEFAULT_SUITE}" ] && \
-        ! git ls-remote --exit-code --heads origin refs/heads/${REAL_BRANCH} &>/dev/null
-    then
-        # "rolling" release, set REAL_BRANCH to droidian.
-        REAL_BRANCH="droidian"
-    fi
 else
     REAL_BRANCH="${CIRCLE_BRANCH}"
 fi
 
 # Is this an official build?
-if \
-    [ "${CIRCLE_PROJECT_USERNAME}" == "droidian" ] || \
-    [ "${CIRCLE_PROJECT_USERNAME}" == "droidian-releng" ] || \
-    [ "${CIRCLE_PROJECT_USERNAME}" == "droidian-devices" ]
-then
+if [ "${CIRCLE_PROJECT_USERNAME}" == "FuriLabs" ]; then
     OFFICIAL_BUILD="yes"
 fi
 
@@ -112,7 +98,7 @@ commands:
               --cap-add=SYS_ADMIN \\
               --security-opt apparmor:unconfined \\
               --security-opt seccomp=unconfined \\
-              quay.io/droidian/build-essential:<<parameters.suite>>-<<parameters.architecture>> \\
+              quay.io/furilabs/build-essential:<<parameters.suite>>-<<parameters.architecture>> \\
               /bin/sh -c "cd /buildd/sources ; releng-build-package"
 
   deploy-offline:
@@ -141,13 +127,13 @@ commands:
               -e CIRCLE_PROJECT_USERNAME \\
               -e CIRCLE_PROJECT_REPONAME \\
               -e CIRCLE_TAG \\
-              -e GPG_STAGINGPRODUCTION_SIGNING_KEY="\$(echo \${GPG_STAGINGPRODUCTION_SIGNING_KEY} | base64 -d)" \\
+              -e GPG_STAGINGPRODUCTION_SIGNING_KEY \\
               -e GPG_STAGINGPRODUCTION_SIGNING_KEYID \\
               -e INTAKE_SSH_USER \\
-              -e INTAKE_SSH_KEY="\$(echo \${INTAKE_SSH_KEY} | base64 -d)" \\
+              -e INTAKE_SSH_KEY \\
               -v /tmp/buildd-results:/tmp/buildd-results \\
-              quay.io/droidian/build-essential:<<parameters.suite>>-<<parameters.architecture>> \\
-              /bin/sh -c "cd /tmp/buildd-results ; repo-droidian-sign.sh ; repo-droidian-deploy.sh"
+              quay.io/furilabs/build-essential:<<parameters.suite>>-<<parameters.architecture>> \\
+              /bin/sh -c "cd /tmp/buildd-results ; repo-furios-sign.sh ; repo-furios-deploy.sh"
 
 jobs:
 EOF
@@ -165,25 +151,19 @@ elif [ -z "${ARCHITECTURES}" ]; then
 fi
 
 # Host arch specified?
-HOST_ARCH="$(grep 'XS-Droidian-Host-Arch:' debian/control | head -n 1 | awk '{ print $2 }')" || true
-BUILD_ON="$(grep 'XS-Droidian-Build-On:' debian/control | head -n 1 | awk '{ print $2 }')" || true
+HOST_ARCH="$(grep 'XS-FuriOS-Host-Arch:' debian/control | head -n 1 | awk '{ print $2 }')" || true
+BUILD_ON="$(grep 'XS-FuriOS-Build-On:' debian/control | head -n 1 | awk '{ print $2 }')" || true
 if [ -n "${HOST_ARCH}" ] && [ -n "${BUILD_ON}" ]; then
     ARCHITECTURES="${BUILD_ON}"
 elif [ -n "${HOST_ARCH}" ]; then
-    echo "Both XS-Droidian-Host-Arch and XS-Droidian-Build-On must be specified to allow crossbuilds" >&2
+    echo "Both XS-FuriOS-Host-Arch and XS-FuriOS-Build-On must be specified to allow crossbuilds" >&2
     exit 1
 fi
 
 # Retrieve EXTRA_REPOS
-EXTRA_REPOS="$(grep 'XS-Droidian-Extra-Repos:' debian/control | cut -d ' ' -f2-)" || true
+EXTRA_REPOS="$(grep 'XS-FuriOS-Extra-Repos:' debian/control | cut -d ' ' -f2-)" || true
 
-# Determine suite
-# If the branch name is droidian, use $DEFAULT_SUITE
-if [ "${REAL_BRANCH}" == "droidian" ]; then
-    SUITE="${DEFAULT_SUITE}"
-else
-    SUITE="$(echo ${REAL_BRANCH} | cut -d/ -f2)"
-fi
+SUITE="$(echo ${REAL_BRANCH} | cut -d/ -f2)"
 
 full_build="yes"
 enabled_architectures=""
@@ -253,7 +233,7 @@ for arch in ${enabled_architectures}; do
             tags:
               only: /^droidian\/.*\/.*/
           context:
-            - droidian-buildd
+            - furilabs-buildd
 EOF
 done
 

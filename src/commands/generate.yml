@@ -1,6 +1,6 @@
 description: >
   Generates a suitable CircleCI configuration that allows
-  building Droidian packages.
+  building FuriOS packages.
 steps:
   - run:
       name: Generate config
