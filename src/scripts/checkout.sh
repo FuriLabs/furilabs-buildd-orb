@@ -26,8 +26,10 @@ if [ -n "$CIRCLE_TAG" ]; then
   echo 'Checking out tag'
   git checkout --force "$CIRCLE_TAG"
   git reset --hard "$CIRCLE_SHA1"
+  git submodule update --init --recursive
 else
   echo 'Checking out branch'
   git checkout --force -B "$CIRCLE_BRANCH" "$CIRCLE_SHA1"
   git --no-pager log --no-color -n 1 --format='HEAD is now at %h %s'
+  git submodule update --init --recursive
 fi
