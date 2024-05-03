@@ -1,6 +1,6 @@
 #!/bin/bash
 
-AVAILABLE_ARCHITECTURES="amd64 arm64 armhf"
+AVAILABLE_ARCHITECTURES="amd64 arm64"
 
 # Determine branch. On tag builds, CIRCLE_BRANCH is not set, so we infer
 # the branch by looking at the actual tag
@@ -19,40 +19,6 @@ cat > generated_config.yml <<EOF
 version: 2.1
 
 commands:
-  armhf-setup:
-    # Sets-up the environment to run armhf builds.
-    # Ref: https://thegeeklab.de/posts/2020/09/run-an-arm32-docker-daemon-on-arm64-servers/
-    steps:
-      - run:
-          name: Setup armhf environment
-          command: |
-            cat _escapeme_<<EOF | sudo tee /etc/apt/sources.list.d/docker-armhf.list
-            deb [arch=armhf] https://download.docker.com/linux/ubuntu focal stable
-            EOF
-            sudo dpkg --add-architecture armhf
-            sudo apt-get update
-            sudo systemctl stop docker
-            sudo systemctl stop containerd
-            sudo systemctl disable docker
-            sudo systemctl disable containerd
-            sudo ln -sf /bin/true /usr/sbin/update-initramfs
-            sudo apt-get install --yes docker-ce:armhf docker-ce-cli:armhf docker-ce-rootless-extras:armhf docker-compose-plugin:armhf
-            sudo mkdir -p /etc/systemd/system/containerd.service.d
-            sudo mkdir -p /etc/systemd/system/docker.service.d
-            cat _escapeme_<<EOF | sudo tee /etc/systemd/system/containerd.service.d/arm32.conf
-            [Service]
-            ExecStart=
-            ExecStart=/usr/bin/setarch linux32 -B /usr/bin/containerd
-            EOF
-            cat _escapeme_<<EOF | sudo tee /etc/systemd/system/docker.service.d/arm32.conf
-            [Service]
-            ExecStart=
-            ExecStart=/usr/bin/setarch linux32 -B /usr/bin/dockerd -H unix:// --containerd=/run/containerd/containerd.sock
-            EOF
-            sudo systemctl daemon-reload
-            sudo systemctl start containerd
-            sudo systemctl start docker
-
   debian-build:
     parameters:
       suite:
@@ -183,11 +149,7 @@ for arch in ${ARCHITECTURES}; do
         resource_class="arm.medium"
     fi
 
-    if [ "${arch}" == "armhf" ]; then
-        prepare="- armhf-setup"
-    else
-        prepare=""
-    fi
+    prepare=""
 
     cat >> generated_config.yml <<EOF
   build-${arch}:
