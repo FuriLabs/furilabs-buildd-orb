@@ -76,11 +76,12 @@ commands:
           no_output_timeout: 20m
           command: |
             mkdir -p /tmp/buildd-results ; \\
-            git clone -b "${REAL_BRANCH}" "${CIRCLE_REPOSITORY_URL//git@github.com:/https:\/\/github.com\/}" sources ; \\
+            git clone --recurse-submodules -b "${REAL_BRANCH}" "${CIRCLE_REPOSITORY_URL//git@github.com:/https:\/\/github.com\/}" sources ; \\
             if [ -n "${CIRCLE_TAG}" ]; then \\
               cd sources ; \\
               git fetch --tags ; \\
               git checkout "${CIRCLE_TAG}" ; \\
+              git submodule update --init --recursive ; \\
               cd .. ; \\
             fi ; \\
             docker run \\
