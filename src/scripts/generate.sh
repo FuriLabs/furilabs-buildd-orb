@@ -33,6 +33,12 @@ commands:
       extra_repos:
         type: string
         default: ""
+      extra_packages:
+        type: string
+        default: ""
+      force_staging:
+        type: string
+        default: ""
       host_arch:
         type: string
         default: ""
@@ -58,6 +64,8 @@ commands:
               -e CIRCLE_SHA1 \\
               -e CIRCLE_TAG \\
               -e EXTRA_REPOS="<<parameters.extra_repos>>" \\
+              -e EXTRA_PACKAGES="<<parameters.extra_packages>>" \\
+              -e FORCE_STAGING="<<parameters.force_staging>>" \\
               -e RELENG_FULL_BUILD="<<parameters.full_build>>" \\
               -e RELENG_HOST_ARCH="<<parameters.host_arch>>" \\
               -v /tmp/buildd-results:/buildd \\
@@ -132,6 +140,12 @@ EXTRA_REPOS="$(grep 'XS-FuriOS-Extra-Repos:' debian/control | cut -d ' ' -f2-)" 
 
 SUITE="$(echo ${REAL_BRANCH} | cut -d/ -f2)"
 
+# Extra packages to install (such as apt config)?
+EXTRA_REPOS="$(grep 'XS-FuriOS-Extra-Packages:' debian/control | cut -d ' ' -f2-)" || true
+
+# Should package be forced to build against staging even if tagged or feature?
+FORCE_STAGING="$(grep 'XS-FuriOS-Force-Staging:' debian/control | cut -d ' ' -f2-)" || true
+
 full_build="yes"
 enabled_architectures=""
 for arch in ${ARCHITECTURES}; do
@@ -164,6 +178,8 @@ for arch in ${ARCHITECTURES}; do
           full_build: "${full_build}"
           host_arch: "${HOST_ARCH}"
           extra_repos: "${EXTRA_REPOS}"
+          extra_packages: "${EXTRA_PACKAGES}"
+          force_staging: "${FORCE_STAGING}"
 EOF
 
     if [ "${OFFICIAL_BUILD}" == "yes" ]; then
