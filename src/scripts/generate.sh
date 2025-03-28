@@ -210,7 +210,7 @@ for arch in ${enabled_architectures}; do
       - build-${arch}:
           filters:
             tags:
-              only: /^droidian\/.*\/.*/
+              only: /^furios\/.*\/.*/
           context:
             - furilabs-buildd
 EOF
