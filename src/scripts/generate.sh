@@ -141,7 +141,7 @@ EXTRA_REPOS="$(grep 'XS-FuriOS-Extra-Repos:' debian/control | cut -d ' ' -f2-)" 
 SUITE="$(echo ${REAL_BRANCH} | cut -d/ -f2)"
 
 # Extra packages to install (such as apt config)?
-EXTRA_REPOS="$(grep 'XS-FuriOS-Extra-Packages:' debian/control | cut -d ' ' -f2-)" || true
+EXTRA_PACKAGES="$(grep 'XS-FuriOS-Extra-Packages:' debian/control | cut -d ' ' -f2-)" || true
 
 # Should package be forced to build against staging even if tagged or feature?
 FORCE_STAGING="$(grep 'XS-FuriOS-Force-Staging:' debian/control | cut -d ' ' -f2-)" || true
