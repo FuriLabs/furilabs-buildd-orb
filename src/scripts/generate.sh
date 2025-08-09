@@ -23,7 +23,7 @@ commands:
     parameters:
       suite:
         type: string
-        default: "bookworm"
+        default: "forky"
       architecture:
         type: string
         default: "arm64"
