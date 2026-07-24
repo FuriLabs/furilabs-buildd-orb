@@ -15,6 +15,151 @@ if [ "${CIRCLE_PROJECT_USERNAME}" == "FuriLabs" ]; then
     OFFICIAL_BUILD="yes"
 fi
 
+# Flatpak or Debian?
+if [ -n "${CIRCLE_PROJECT_FLATPAK_MANIFEST_PATH}" ]; then
+    MANIFEST_FILE="${CIRCLE_PROJECT_FLATPAK_MANIFEST_PATH}"
+
+    if [[ "${MANIFEST_FILE}" == *.json ]]; then
+        APP_ID="$(jq -r '.id' "${MANIFEST_FILE}")"
+    else
+        APP_ID="$(grep -m1 '^id:' "${MANIFEST_FILE}" | awk '{print $2}' | tr -d '"')"
+    fi
+
+    SUITE="$(echo ${REAL_BRANCH} | cut -d/ -f2)"
+
+    cat > generated_config.yml <<EOF
+version: 2.1
+
+commands:
+  flatpak-build:
+    parameters:
+      manifest:
+        type: string
+      architecture:
+        type: string
+        default: "amd64"
+      suite:
+        type: string
+        default: "${SUITE}"
+    steps:
+      - run:
+          name: <<parameters.architecture>> flatpak build
+          no_output_timeout: 30m
+          command: |
+            mkdir -p /tmp/flatpak-results ; \\
+            docker run \\
+              --rm \\
+              -e FLATPAK_MANIFEST="<<parameters.manifest>>" \\
+              -e ARCH="<<parameters.architecture>>" \\
+              -e FLATPAK_SUITE="<<parameters.suite>>" \\
+              -e CI \\
+              -e CIRCLECI \\
+              -e CIRCLE_BRANCH="${REAL_BRANCH}" \\
+              -e CIRCLE_SHA1 \\
+              -e CIRCLE_TAG \\
+              -e CIRCLE_PROJECT_USERNAME \\
+              -e CIRCLE_PROJECT_REPONAME \\
+              -v /tmp/flatpak-results:/tmp/flatpak-results \\
+              -v "${PWD}":/buildd/sources \\
+              -w /buildd/sources \\
+              quay.io/furilabs/flatpak-builder:<<parameters.suite>> \\
+              /bin/sh -c "releng-build-flatpak"
+
+  flatpak-deploy:
+    parameters:
+      architecture:
+        type: string
+        default: "amd64"
+      suite:
+        type: string
+        default: "${SUITE}"
+      app_id:
+        type: string
+    steps:
+      - run:
+          name: <<parameters.architecture>> flatpak deploy
+          no_output_timeout: 10m
+          command: |
+            docker run \\
+              --rm \\
+              -e FLATPAK_APP_ID="<<parameters.app_id>>" \\
+              -e ARCH="<<parameters.architecture>>" \\
+              -e FLATPAK_SUITE="<<parameters.suite>>" \\
+              -e FLATPAK_REPO_DIR="/tmp/flatpak-results/repo" \\
+              -e FLATPAK_GPG_KEY_ID="${GPG_STAGINGPRODUCTION_SIGNING_KEYID:-}" \\
+              -e FLATPAK_REMOTE_TARGET="flatpak.furilabs.io:/repo/<<parameters.suite>>" \\
+              -e CIRCLE_PROJECT_USERNAME \\
+              -e CIRCLE_PROJECT_REPONAME \\
+              -v /tmp/flatpak-results:/tmp/flatpak-results \\
+              quay.io/furilabs/flatpak-builder:<<parameters.suite>> \\
+              /bin/sh -c "releng-deploy-flatpak"
+
+  deploy-offline:
+    steps:
+      - store_artifacts:
+          path: /tmp/flatpak-results
+
+jobs:
+EOF
+
+    enabled_architectures=""
+    for arch in ${AVAILABLE_ARCHITECTURES}; do
+        resource_class="large"
+        if [ "${arch}" == "arm64" ]; then
+            resource_class="arm.large"
+        fi
+
+        cat >> generated_config.yml <<EOF
+  build-${arch}:
+    machine:
+      image: ubuntu-2004:current
+      resource_class: ${resource_class}
+    steps:
+      - flatpak-build:
+          manifest: "${MANIFEST_FILE}"
+          architecture: "${arch}"
+          suite: "${SUITE}"
+EOF
+
+        if [ "${OFFICIAL_BUILD}" == "yes" ]; then
+            cat >> generated_config.yml <<EOF
+      - flatpak-deploy:
+          architecture: "${arch}"
+          suite: "${SUITE}"
+          app_id: "${APP_ID}"
+
+EOF
+        else
+            cat >> generated_config.yml <<EOF
+      - deploy-offline
+
+EOF
+        fi
+
+        enabled_architectures="${enabled_architectures} ${arch}"
+    done
+
+    cat >> generated_config.yml <<EOF
+workflows:
+  build:
+    jobs:
+EOF
+
+    for arch in ${enabled_architectures}; do
+        cat >> generated_config.yml <<EOF
+      - build-${arch}:
+          filters:
+            tags:
+              only: /^furios\/.*\/.*/
+          context:
+            - furilabs-buildd
+EOF
+    done
+
+    sed -i 's|_escapeme_<|\\<|g' generated_config.yml
+    exit 0
+fi
+
 cat > generated_config.yml <<EOF
 version: 2.1
 

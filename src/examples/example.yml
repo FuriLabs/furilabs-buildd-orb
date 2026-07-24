@@ -1,13 +1,31 @@
 description: >
-  Sample example description.
-# Provide a use-case based example for using this orb.
-# Everything in the `usage` section will be displayed in the orb registry.
-# Comments are not retained.
+  Build and deploy a flatpak from a manifest.
 usage:
   version: 2.1
   orbs:
-    <orb-name>: <namespace>/<orb-name>@1.2.3
+    buildd: furilabs-buildd/furilabs-buildd-orb@volatile
+
   workflows:
-    use-my-orb:
+    build-and-deploy:
       jobs:
-        - <orb-name>/<job-name>
+        - buildd/flatpak-build:
+            manifest: io.github.shinyvision.Circadia.yml
+            arch: amd64
+            name: flatpak-build-amd64
+
+        - buildd/flatpak-build:
+            manifest: io.github.shinyvision.Circadia.yml
+            arch: arm64
+            name: flatpak-build-arm64
+
+        - buildd/flatpak-deploy:
+            app_id: io.github.shinyvision.Circadia
+            arch: amd64
+            context: furilabs-buildd
+            requires: [flatpak-build-amd64]
+
+        - buildd/flatpak-deploy:
+            app_id: io.github.shinyvision.Circadia
+            arch: arm64
+            context: furilabs-buildd
+            requires: [flatpak-build-arm64]
